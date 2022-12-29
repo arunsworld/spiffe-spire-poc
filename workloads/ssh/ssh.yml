@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ssh
+  namespace: ennovation
+spec:
+  type: NodePort
+  ports:
+  - port: 22
+    name: ssh
+  selector:
+    app: ssh
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ssh
+  namespace: ennovation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ssh
+  serviceName: ssh
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      storageClassName: microk8s-hostpath
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Mi
+  template:
+    metadata:
+      labels:
+        app: ssh
+    spec:
+      containers:
+        - name: ssh
+          image: arunsworld/golang-ssh
+          env:
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: unix:///run/spire/sockets/agent.sock
+          ports:
+            - containerPort: 22
+              name: ssh
+          volumeMounts:
+          - name: data
+            mountPath: /data/
+          - name: spire-agent-socket
+            mountPath: /run/spire/sockets/agent.sock
+            readOnly: true
+      volumes:
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets/agent.sock
+            type: Socket

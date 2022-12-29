@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,6 +25,7 @@ func main() {
 	var myName string
 	var serverEndpoint string
 	var serverID string
+	var serverPrefix string
 	var delayBetweenWritesInSeconds int
 
 	app := &cli.App{
@@ -49,8 +51,13 @@ func main() {
 			&cli.StringFlag{
 				Name:        "serverid",
 				EnvVars:     []string{"SERVER_ID"},
-				Value:       "spiffe://arunsworld.com/ns/ennovation/sa/default/name/server",
 				Destination: &serverID,
+			},
+			&cli.StringFlag{
+				Name:        "serverPrefix",
+				EnvVars:     []string{"SERVER_PREFIX"},
+				Value:       "spiffe://arunsworld.com/ns/ennovation/sa/ennovation-sa/name/server",
+				Destination: &serverPrefix,
 			},
 			&cli.IntFlag{
 				Name:        "delay",
@@ -63,7 +70,7 @@ func main() {
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer cancel()
 
-			return doMain(ctx, myName, printCerts, serverEndpoint, serverID, time.Duration(delayBetweenWritesInSeconds)*time.Second)
+			return doMain(ctx, myName, printCerts, serverEndpoint, serverID, serverPrefix, time.Duration(delayBetweenWritesInSeconds)*time.Second)
 		},
 	}
 
@@ -73,7 +80,7 @@ func main() {
 
 }
 
-func doMain(ctx context.Context, myName string, printCerts bool, serverEndpoint, _serverID string, delay time.Duration) error {
+func doMain(ctx context.Context, myName string, printCerts bool, serverEndpoint, serverID, serverPrefix string, delay time.Duration) error {
 	log.Println("opening SPIFFE Workload API X.509 source...")
 
 	certctx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -91,9 +98,21 @@ func doMain(ctx context.Context, myName string, printCerts bool, serverEndpoint,
 		}
 	}
 
-	serverID := spiffeid.RequireFromString(_serverID)
+	var auhorizer tlsconfig.Authorizer
+	switch {
+	case serverID != "":
+		auhorizer = tlsconfig.AuthorizeID(spiffeid.RequireFromString(serverID))
+		log.Println("using server ID based authorizer...")
+	case serverPrefix != "":
+		auhorizer = authorizePrefix(serverPrefix)
+		log.Println("using server ID prefix based authorizer...")
+	default:
+		auhorizer = tlsconfig.AuthorizeAny()
+		log.Println("using no authorizer... any authenticated server will do...")
+	}
+
 	conn, err := grpc.DialContext(ctx, serverEndpoint, grpc.WithTransportCredentials(
-		grpccredentials.MTLSClientCredentials(source, source, tlsconfig.AuthorizeID(serverID)),
+		grpccredentials.MTLSClientCredentials(source, source, auhorizer),
 	))
 	if err != nil {
 		return err
@@ -119,6 +138,15 @@ func doMain(ctx context.Context, myName string, printCerts bool, serverEndpoint,
 		case <-time.After(delay):
 		}
 	}
+}
+
+func authorizePrefix(prefix string) tlsconfig.Authorizer {
+	return tlsconfig.AdaptMatcher(func(id spiffeid.ID) error {
+		if !strings.HasPrefix(id.String(), prefix) {
+			return fmt.Errorf("unexpected ID %q", id)
+		}
+		return nil
+	})
 }
 
 func printCertsForDebugging(source *workloadapi.X509Source) error {

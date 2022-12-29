@@ -3,5 +3,5 @@ kind: ClusterSPIFFEID
 metadata:
   name: k8s
 spec:
-  spiffeIDTemplate: "spiffe://{{ .TrustDomain }}/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}/name/{{ .PodMeta.Labels.app }}"
+  spiffeIDTemplate: "spiffe://{{ .TrustDomain }}/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}/name/{{ .PodMeta.Name }}"
 ---
