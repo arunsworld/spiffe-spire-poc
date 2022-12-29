@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+  namespace: ennovation
+  labels:
+    app: server
+spec:
+  selector:
+    matchLabels:
+      app: server
+  template:
+    metadata:
+      name: server
+      namespace: ennovation
+      labels:
+        app: server
+    spec:
+      containers:
+        - name: grpc-server
+          image: arunsworld/spiffe-poc:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - server
+          ports:
+            - name: grpc-server
+              containerPort: 50051
+          env:
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: unix:///run/spire/sockets/agent.sock
+            - name: TRUST_DOMAIN
+              value: arunsworld.com
+          volumeMounts:
+            - name: spiffe-endpoint-socket
+              mountPath: /run/spire/sockets/agent.sock
+      volumes:
+        - name: spiffe-endpoint-socket
+          hostPath:
+            path: /run/spire/sockets/agent.sock
+            type: Socket
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  namespace: ennovation
+  labels:
+    app: client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      name: client
+      namespace: ennovation
+      labels:
+        app: client
+    spec:
+      containers:
+        - name: grpc-client
+          image: arunsworld/spiffe-poc:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - client
+          env:
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: unix:///run/spire/sockets/agent.sock
+            - name: PRINT_CERTS
+              value: 'true'
+            - name: NAME
+              value: client
+            - name: SERVER_ENDPOINT
+              value: server:443
+            - name: SERVER_ID
+              value: spiffe://arunsworld.com/ns/ennovation/sa/default/name/server
+            - name: DELAY_BETWEEN_WRITES
+              value: '5'
+          volumeMounts:
+            - name: spiffe-endpoint-socket
+              mountPath: /run/spire/sockets/agent.sock
+      volumes:
+        - name: spiffe-endpoint-socket
+          hostPath:
+            path: /run/spire/sockets/agent.sock
+            type: Socket

@@ -1,0 +1,12 @@
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: ennovation
+spec:
+  spiffeIDTemplate: "spiffe://{{ .TrustDomain }}/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}/name/{{ .PodMeta.Labels.app }}"
+  dnsNameTemplates:
+  - "{{ .PodMeta.Name }}.{{ .PodMeta.Namespace }}"
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: "ennovation"
+---
