@@ -89,3 +89,47 @@ spec:
           hostPath:
             path: /run/spire/sockets/agent.sock
             type: Socket
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webserver
+  namespace: ennovation
+  labels:
+    app: webserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webserver
+  template:
+    metadata:
+      name: webserver
+      namespace: ennovation
+      labels:
+        app: webserver
+    spec:
+      serviceAccountName: ennovation-sa
+      containers:
+        - name: webserver
+          image: arunsworld/spiffe-poc:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - webserver
+          ports:
+            - name: https
+              containerPort: 50051
+          env:
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: unix:///run/spire/sockets/agent.sock
+            - name: PRINT_CERTS
+              value: 'true'
+          volumeMounts:
+            - name: spiffe-endpoint-socket
+              mountPath: /run/spire/sockets/agent.sock
+              readOnly: true
+      volumes:
+        - name: spiffe-endpoint-socket
+          hostPath:
+            path: /run/spire/sockets/agent.sock
+            type: Socket

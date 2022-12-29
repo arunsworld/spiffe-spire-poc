@@ -21,3 +21,16 @@ spec:
   ports:
     - port: 443
       targetPort: grpc-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webserver
+  namespace: ennovation
+spec:
+  type: NodePort
+  selector:
+    app: webserver
+  ports:
+    - port: 443
+      targetPort: https

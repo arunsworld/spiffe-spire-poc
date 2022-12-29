@@ -1,6 +1,6 @@
 IMAGE_NAME := arunsworld/spiffe-poc
 LD_FLAGS := -s -w
-TARGETS := ./client:./server
+TARGETS := ./client:./server:./webserver
 
 build:
 	pack build ${IMAGE_NAME}:latest \
