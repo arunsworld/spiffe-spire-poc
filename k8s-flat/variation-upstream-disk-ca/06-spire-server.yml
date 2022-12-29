@@ -1,0 +1,241 @@
+# ConfigMap containing the latest trust bundle for the trust domain. It is
+# updated by SPIRE using the k8sbundle notifier plugin. SPIRE agents mount
+# this config map and use the certificate to bootstrap trust with the SPIRE
+# server during attestation.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-bundle
+  namespace: spire
+
+---
+
+# ConfigMap containing the SPIRE server configuration.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-server
+  namespace: spire
+data:
+  server.conf: |
+    server {
+      bind_address = "0.0.0.0"
+      bind_port = "8081"
+      socket_path = "/tmp/spire-server/private/api.sock"
+      trust_domain = "arunsworld.com"
+      data_dir = "/run/spire/data"
+      log_level = "DEBUG"
+      federation {
+        bundle_endpoint {
+          address = "0.0.0.0"
+          port = 8443
+        }
+      }
+      #AWS requires the use of RSA.  EC cryptography is not supported
+      ca_key_type = "rsa-2048"
+
+      ca_subject = {
+        country = ["UK"],
+        organization = ["arunsworld.com"],
+        common_name = "arunsworld.com",
+      }
+    }
+
+    plugins {
+      DataStore "sql" {
+        plugin_data {
+          database_type = "sqlite3"
+          connection_string = "/run/spire/data/datastore.sqlite3"
+        }
+      }
+
+      UpstreamAuthority "disk" {
+        plugin_data{
+          cert_file_path = "/run/spire/ca/tls.crt"
+          key_file_path = "/run/spire/ca/tls.key"
+        }
+      }
+
+      NodeAttestor "k8s_psat" {
+        plugin_data {
+          clusters = {
+            "ennovation" = {
+              service_account_allow_list = ["spire:spire-agent"]
+            }
+          }
+        }
+      }
+
+      KeyManager "disk" {
+        plugin_data {
+          keys_path = "/run/spire/data/keys.json"
+        }
+      }
+
+      Notifier "k8sbundle" {
+        plugin_data {
+        }
+      }
+    }
+
+    health_checks {
+      listener_enabled = true
+      bind_address = "0.0.0.0"
+      bind_port = "8080"
+      live_path = "/live"
+      ready_path = "/ready"
+    }
+
+---
+
+# ConfigMap containing the SPIRE Controller Manager configuration.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-controller-manager
+  namespace: spire
+data:
+  config.json: |
+    {
+      "apiVersion": "spire.spiffe.io/v1alpha1",
+      "kind": "ControllerManagerConfig",
+      "metrics": {"bindAddress": "127.0.0.1:8082"},
+      "healthProbe": {"bindAddress": "127.0.0.1:8083"},
+      "leaderElection": {
+        "leaderElect": true,
+        "resourceName": "98c9c988.spiffe.io",
+        "resourceNamespace": "spire"
+      },
+      "clusterName": "ennovation",
+      "trustDomain": "arunsworld.com",
+      "ignoreNamespaces": ["kube-system", "kube-public", "spire", "container-registry", "cert-manager"]
+    }
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: spire-server
+  namespace: spire
+  labels:
+    app: spire-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spire-server
+  serviceName: spire-server
+  template:
+    metadata:
+      namespace: spire
+      labels:
+        app: spire-server
+    spec:
+      serviceAccountName: spire-server
+      containers:
+        - name: spire-server
+          image: ghcr.io/spiffe/spire-server:1.5.1
+          args:
+            - -config
+            - /run/spire/config/server.conf
+          ports:
+            - containerPort: 8081
+          volumeMounts:
+            - name: spire-config
+              mountPath: /run/spire/config
+              readOnly: true
+            - name: spire-data
+              mountPath: /run/spire/data
+              readOnly: false
+            - name: spire-server-socket
+              mountPath: /tmp/spire-server/private
+            - name: ca-key-pair
+              mountPath: /run/spire/ca
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 8080
+            failureThreshold: 2
+            initialDelaySeconds: 15
+            periodSeconds: 60
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+        - name: spire-controller-manager
+          image: ghcr.io/spiffe/spire-controller-manager:nightly
+          ports:
+            - containerPort: 9443
+          args:
+            - --config
+            - /run/spire-controller-manager/config/config.json
+          volumeMounts:
+            - name: spire-server-socket
+              mountPath: /spire-server
+              readOnly: true
+            - name: spire-controller-manager-config
+              mountPath: /run/spire-controller-manager/config
+              readOnly: true
+      volumes:
+        - name: spire-config
+          configMap:
+            name: spire-server
+        - name: spire-controller-manager-config
+          configMap:
+            name: spire-controller-manager
+        - name: spire-server-socket
+          emptyDir: {}
+        - name: ca-key-pair
+          secret:
+            secretName: ca-key-pair
+  volumeClaimTemplates:
+    - metadata:
+        name: spire-data
+        namespace: spire
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+
+---
+
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: spire-controller-manager-webhook
+webhooks:
+  - admissionReviewVersions: ["v1"]
+    clientConfig:
+      service:
+        name: spire-controller-manager-webhook-service
+        namespace: spire
+        path: /validate-spire-spiffe-io-v1alpha1-clusterfederatedtrustdomain
+    failurePolicy: Fail
+    name: vclusterfederatedtrustdomain.kb.io
+    rules:
+      - apiGroups: ["spire.spiffe.io"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["clusterfederatedtrustdomains"]
+    sideEffects: None
+  - admissionReviewVersions: ["v1"]
+    clientConfig:
+      service:
+        name: spire-controller-manager-webhook-service
+        namespace: spire
+        path: /validate-spire-spiffe-io-v1alpha1-clusterspiffeid
+    failurePolicy: Fail
+    name: vclusterspiffeid.kb.io
+    rules:
+      - apiGroups: ["spire.spiffe.io"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["clusterspiffeids"]
+    sideEffects: None

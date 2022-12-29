@@ -4,4 +4,6 @@ metadata:
   name: k8s
 spec:
   spiffeIDTemplate: "spiffe://{{ .TrustDomain }}/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}/name/{{ .PodMeta.Name }}"
+  dnsNameTemplates: 
+    - "{{ .PodMeta.Namespace }}.{{ .TrustDomain }}"
 ---
