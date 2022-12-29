@@ -25,6 +25,12 @@ data:
       trust_domain = "arunsworld.com"
       data_dir = "/run/spire/data"
       log_level = "DEBUG"
+      federation {
+        bundle_endpoint {
+          address = "0.0.0.0"
+          port = 8443
+        }
+      }
       #AWS requires the use of RSA.  EC cryptography is not supported
       ca_key_type = "rsa-2048"
 
