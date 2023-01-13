@@ -136,7 +136,7 @@ spec:
       serviceAccountName: spire-server
       containers:
         - name: spire-server
-          image: ghcr.io/spiffe/spire-server:1.5.1
+          image: docker.io/arunsworld/spire-server:latest
           args:
             - -config
             - /run/spire/config/server.conf
@@ -169,7 +169,7 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
         - name: spire-controller-manager
-          image: ghcr.io/spiffe/spire-controller-manager:nightly
+          image: docker.io/arunsworld/spire-controller-manager:latest
           ports:
             - containerPort: 9443
           args:
