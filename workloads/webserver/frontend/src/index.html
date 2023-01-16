@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,viewport-fit=cover" />
+    <meta name="description" content="Webserver App">
+    <link href="index.css" rel="stylesheet">
+    <title>Webserver App</title>
+</head>
+
+<body class="bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+    <div class="container mx-auto">
+        <div class="h-screen flex flex-col justify-center items-center">
+            <div class="border rounded-lg shadow-md p-5 border-gray-300 dark:border-gray-700 dark:shadow-slate-800">
+                <p class="text-6xl m-5 text-center">नमस्ते दुनिया</p>
+                <p class="text-xl m-5 text-center">I'm a secure webapp</p>
+            </div>
+        </div>
+    </div>
+</body>
+
+<script>
+    async function setViewHeight(t) {
+		await new Promise(r => setTimeout(r, t));
+		let vh = window.innerHeight * 0.01;
+    	document.documentElement.style.setProperty('--vh', `${vh}px`);
+	}
+
+    document.addEventListener("DOMContentLoaded", function(){
+        setViewHeight(0);
+        let listener = () => {setViewHeight(200)}
+		window.addEventListener('resize', listener);
+    });
+</script>
+
+</html>

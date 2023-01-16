@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"embed"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +16,9 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/urfave/cli/v2"
 )
+
+//go:embed all:embed/*
+var webContent embed.FS
 
 func main() {
 	const port = 50051
@@ -61,8 +66,27 @@ func doMain(ctx context.Context, port int, printCerts bool) error {
 		}
 	}
 
+	indexHTML, err := readEmbedContent("index.html")
+	if err != nil {
+		return err
+	}
+	svid, err := source.GetX509SVID()
+	if err != nil {
+		return err
+	}
+	idMsg := fmt.Sprintf("I am: %s", svid.ID.String())
+	indexHTML = bytes.ReplaceAll(indexHTML, []byte("I'm a secure webapp"), []byte(idMsg))
+	indexCSS, err := readEmbedContent("index.css")
+	if err != nil {
+		return err
+	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "This is a secure HTTPS server. Welcome.\n")
+		w.Header().Add("Content-Type", "text/html")
+		w.Write(indexHTML)
+	})
+	http.HandleFunc("/index.css", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "text/css")
+		w.Write(indexCSS)
 	})
 
 	tlsConfig := tlsconfig.TLSServerConfig(source)
@@ -111,4 +135,8 @@ func printCertsForDebugging(source *workloadapi.X509Source) error {
 	fmt.Println(string(a))
 	fmt.Println(string(b))
 	return nil
+}
+
+func readEmbedContent(fname string) ([]byte, error) {
+	return webContent.ReadFile(fmt.Sprintf("embed/%s", fname))
 }
