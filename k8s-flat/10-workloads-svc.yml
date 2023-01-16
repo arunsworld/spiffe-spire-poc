@@ -32,5 +32,6 @@ spec:
   selector:
     app: webserver
   ports:
-    - port: 443
+    - name: https
+      port: 443
       targetPort: https

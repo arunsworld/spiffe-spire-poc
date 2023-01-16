@@ -5,6 +5,8 @@
 
 ## Pre-requisites
 * Load a secret called `ca-key-pair` into the spire namespace
-* It should contain 2 files:
+* Assume this is an intermediate signing authority
+* It should contain 3 files:
     * `tls.crt` - base64 encoded CA certificate
-    * `tls.key` - base64 encoded CA key
+    * `tls.key` - base64 encoded CA key (intermediate)
+    * `ca.crt` - base64 encoded root CA certificate

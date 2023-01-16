@@ -53,6 +53,7 @@ data:
         plugin_data{
           cert_file_path = "/run/spire/ca/tls.crt"
           key_file_path = "/run/spire/ca/tls.key"
+          bundle_file_path = "/run/spire/ca/ca.crt"
         }
       }
 

@@ -1,0 +1,53 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: webserver
+  namespace: ennovation
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    # passthrough doesn't seem to work for me
+    # nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: spiffe-webserver.k8s
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: webserver
+                port:
+                  name: https
+  tls:
+    - hosts:
+      - spiffe-webserver.k8s
+      secretName: spiffe-webserver-certs
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: spiffe-webserver
+  namespace: ennovation
+spec:
+  secretName: spiffe-webserver-certs
+  duration: 2160h
+  renewBefore: 360h
+  subject:
+    organizations:
+      - arunsworld.com
+  commonName: spiffe-webserver.k8s
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - spiffe-webserver.k8s
+  issuerRef:
+    name: ca-cluster-issuer
+    kind: ClusterIssuer
