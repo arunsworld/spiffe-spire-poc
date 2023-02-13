@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: go-src
+  namespace: ennovation
+  labels:
+    app: go-pod
+spec:
+  storageClassName: local-path
+  accessModes: [ "ReadWriteOnce" ]
+  resources:
+    requests:
+      storage: 1Mi

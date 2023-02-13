@@ -21,8 +21,9 @@ import (
 var webContent embed.FS
 
 func main() {
-	const port = 50051
 	var printCerts bool
+	var hello string
+	var port int
 
 	app := &cli.App{
 		Name: "client",
@@ -33,12 +34,24 @@ func main() {
 				Value:       true,
 				Destination: &printCerts,
 			},
+			&cli.StringFlag{
+				Name:        "hello",
+				EnvVars:     []string{"HELLO"},
+				Value:       "Hello, World",
+				Destination: &hello,
+			},
+			&cli.IntFlag{
+				Name:        "port",
+				EnvVars:     []string{"PORT"},
+				Value:       50051,
+				Destination: &port,
+			},
 		},
 		Action: func(*cli.Context) error {
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer cancel()
 
-			return doMain(ctx, port, printCerts)
+			return doMain(ctx, port, printCerts, hello)
 		},
 	}
 
@@ -48,7 +61,7 @@ func main() {
 
 }
 
-func doMain(ctx context.Context, port int, printCerts bool) error {
+func doMain(ctx context.Context, port int, printCerts bool, hello string) error {
 	log.Println("opening SPIFFE Workload API X.509 source...")
 
 	certctx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -76,6 +89,7 @@ func doMain(ctx context.Context, port int, printCerts bool) error {
 	}
 	idMsg := fmt.Sprintf("I am: %s", svid.ID.String())
 	indexHTML = bytes.ReplaceAll(indexHTML, []byte("I'm a secure webapp"), []byte(idMsg))
+	indexHTML = bytes.ReplaceAll(indexHTML, []byte("HELLO_WORLD"), []byte(hello))
 	indexCSS, err := readEmbedContent("index.css")
 	if err != nil {
 		return err

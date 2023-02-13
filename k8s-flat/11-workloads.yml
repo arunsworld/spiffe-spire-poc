@@ -124,6 +124,8 @@ spec:
               value: unix:///run/spire/sockets/agent.sock
             - name: PRINT_CERTS
               value: 'true'
+            - name: HELLO
+              value: 'こんにちは世界'
           volumeMounts:
             - name: spiffe-endpoint-socket
               mountPath: /run/spire/sockets/agent.sock
